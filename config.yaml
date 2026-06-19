@@ -1,4 +1,4 @@
-﻿# Shorts Factory вЂ” РѕСЃРЅРѕРІРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё
+# Shorts Factory main settings
 
 whisper:
   model: medium
@@ -213,8 +213,8 @@ safety:
   min_dialogue_words: 8
   min_first_3sec_words: 2
   #
-  # AI disclosure (С‚СЂРµР±РѕРІР°РЅРёРµ YouTube). Р’Р«РљР›Р®Р§Р•РќРћ вЂ” СѓРїРѕРјРёРЅР°РЅРёРµ РР
-  # РІ РѕРїРёСЃР°РЅРёРё РјРѕР¶РµС‚ РЅР°РІСЂРµРґРёС‚СЊ РїСЂРѕРґРІРёР¶РµРЅРёСЋ.
+  # AI disclosure for YouTube metadata. Disabled: mentioning AI in descriptions can hurt promotion.
+  # Keep this false unless platform policy requires an explicit disclosure.
   ai_disclosure_in_description: false
   #
   # Rights manifest: РІРЅСѓС‚СЂРµРЅРЅРёР№ Р°СѓРґРёС‚-РґРѕРєСѓРјРµРЅС‚, РЅРµ РїСѓР±Р»РёРєСѓРµС‚СЃСЏ.
@@ -229,12 +229,12 @@ safety:
   vocal_isolation_model: "htdemucs"
 
 narration:
-  # вќЊ РћРўРљР›Р®Р§Р•РќРћ: Р±РµСЃРїР»Р°С‚РЅС‹Рµ LLM (gpt-oss, kimi, llama-3.3) РЅРµ РґР°СЋС‚ РєР°С‡РµСЃС‚РІРµРЅРЅРѕРіРѕ
-  # СЂСѓСЃСЃРєРѕРіРѕ РєСЂРµР°С‚РёРІРЅРѕРіРѕ РїРµСЂРµСЃРєР°Р·Р° вЂ” Р°РЅР°С…СЂРѕРЅРёР·РјС‹ ("РњРѕСЂС‚Рё РІ РРЅСЃС‚Р°РіСЂР°РјРµ"),
-  # СЃРєСЂС‹С‚С‹Р№ РґСѓР±Р»СЏР¶ ("С€РµРїС‡РµС‚ РњРѕСЂС‚Рё..."), 100+ СЃР»РѕРІ РЅР° 25 СЃРµРє = С‚Р°СЂР°С‚РѕСЂРёС‚.
-  # РљРѕРґ СЃРѕС…СЂР°РЅС‘РЅ РІ pipeline/narration.py РґР»СЏ Р±СѓРґСѓС‰РµРіРѕ РІРѕР·РІСЂР°С‚Р° РЅР° РїР»Р°С‚РЅС‹С…
-  # LLM (Claude Opus / GPT-4 / Gemini Pro) РіРґРµ РєР°С‡РµСЃС‚РІРѕ РїСЂРёРµРјР»РµРјРѕРµ.
-  # РР· render.py + app.py СѓР±СЂР°РЅ. Р§С‚РѕР±С‹ РІРµСЂРЅСѓС‚СЊ вЂ” РЅСѓР¶РЅС‹ СЂРµС„Р°РєС‚РѕСЂРёРЅРі + РїР»Р°С‚РЅС‹Р№ LLM.
+  # Disabled: low-cost/free LLMs did not produce reliable Russian creative narration.
+  # Typical issues were anachronisms, hidden dubbing, and overly dense narration.
+  # The narration code remains in pipeline/narration.py for a possible paid-LLM return later.
+  # Re-enabling narration requires render.py/app.py wiring and quality checks.
+  # Recommended paid models would need separate validation before production use.
+  # Keep disabled for the current clip factory workflow.
   enabled: false
   voice: "auto"
   gender: "male"
