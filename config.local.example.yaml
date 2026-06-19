@@ -1,0 +1,18 @@
+# Copy this file to config.local.yaml and put private keys there.
+# config.local.yaml is ignored by Git and overrides config.yaml.
+
+kimi:
+  enabled: false
+  api_key: ""
+
+gemini:
+  enabled: false
+  api_key: ""
+
+groq:
+  enabled: false
+  api_key: ""
+
+openrouter:
+  enabled: false
+  api_key: ""

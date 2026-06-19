@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shorts Factory</title>
+  <meta name="description" content="Shorts Factory is a local tool for creating short vertical clips from user-provided videos and publishing them to connected creator accounts.">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="./">
+        <span class="mark">SF</span>
+        <span>Shorts Factory</span>
+      </a>
+      <nav aria-label="Main">
+        <a href="./privacy.html">Privacy</a>
+        <a href="./terms.html">Terms</a>
+        <a href="./tiktok/callback.html">TikTok Callback</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-card">
+        <h1>Shorts Factory</h1>
+        <p class="lead">
+          Shorts Factory is a local desktop/web tool that helps a creator turn
+          user-provided long-form videos into short vertical clips, generate
+          captions and metadata, and publish finished clips to the creator's
+          connected accounts.
+        </p>
+        <div class="actions">
+          <a class="button" href="./privacy.html">Privacy Policy</a>
+          <a class="button secondary" href="./terms.html">Terms of Service</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid" aria-label="App features">
+      <div class="tile">
+        <strong>Runs locally</strong>
+        <p class="muted">
+          The editing pipeline runs on the creator's own computer. The public
+          website is used only for app information, policy pages, and OAuth
+          redirect support.
+        </p>
+      </div>
+      <div class="tile">
+        <strong>User-controlled publishing</strong>
+        <p class="muted">
+          The creator must connect their own account and explicitly enable
+          platform upload before any finished clip is sent to TikTok or YouTube.
+        </p>
+      </div>
+      <div class="tile">
+        <strong>Creator-provided media</strong>
+        <p class="muted">
+          Users are responsible for using source videos, music, and other
+          assets they own or have permission to use.
+        </p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Official app/service URL</h2>
+      <p>
+        Use this page as the Web/Desktop URL for TikTok Developer review.
+      </p>
+      <p>
+        The TikTok OAuth redirect page is:
+        <code>/tiktok/callback.html</code>
+      </p>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <p>Shorts Factory. Local creator tooling for short-form video production.</p>
+  </footer>
+</body>
+</html>

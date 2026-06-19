@@ -1,0 +1,27 @@
+[project]
+name = "shorts-factory"
+version = "0.1.0"
+description = "Local YouTube Shorts factory: long video -> highlight clips"
+requires-python = ">=3.11,<3.12"
+
+dependencies = [
+    "streamlit>=1.32",
+    "ffmpeg-python>=0.2.0",
+    "ollama>=0.2.0",
+    "yt-dlp>=2024.5.27",
+    "mediapipe>=0.10.14",
+    "opencv-python>=4.9",
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+    "numpy>=1.26,<2.0",
+    "torch>=2.4,<2.5",
+    "torchaudio>=2.4,<2.5",
+    "whisperx>=3.1.1",
+    "pysubs2>=1.7.3",
+    "scipy>=1.13",
+    "transformers>=4.40,<5",
+    "setuptools<81",
+]
+
+[tool.setuptools.packages.find]
+include = ["pipeline*"]

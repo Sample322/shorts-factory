@@ -1,0 +1,297 @@
+﻿# Shorts Factory вЂ” РѕСЃРЅРѕРІРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё
+
+whisper:
+  model: medium
+  device: cuda
+  compute_type: int8
+  batch_size: 4
+  language: ru
+
+music:
+  # Р‘СЌРєРµРЅРґ РіРµРЅРµСЂР°С†РёРё С„РѕРЅРѕРІРѕР№ РјСѓР·С‹РєРё.
+  #   stable_audio_open: Stable Audio Open 1.0 (default, ~10СЃ/30СЃ С‚СЂРµРє, Р»С‘РіРєРёР№)
+  #   ace_step:          ACE-Step 1.5 РІ isolated venv (.venv-acestep),
+  #                       РїСЂРѕРґСѓРєС‚РѕРІР°СЏ РјРѕРґРµР»СЊ, lyrics/style/ref control,
+  #                       Р»СѓС‡С€Р°СЏ СѓРїСЂР°РІР»СЏРµРјРѕСЃС‚СЊ РїСЂРѕРјРїС‚РѕРј (CSV-tag С„РѕСЂРјР°С‚)
+  # РџРµСЂРµРєР»СЋС‡РµРЅРёРµ Р±РµР· СЂРµСЃС‚Р°СЂС‚Р° worker'Р° вЂ” Р±РµСЂС‘С‚СЃСЏ РїСЂРё РєР°Р¶РґРѕРј РІС‹Р·РѕРІРµ.
+  # ENV override: MUSIC_BACKEND=ace_step
+  backend: ace_step
+
+  # LoRA-Р°РґР°РїС‚РµСЂС‹ РґР»СЏ ACE-Step (СЃС‚РёР»РµРІР°СЏ РґРѕРѕР±СѓС‡РµРЅРЅРѕСЃС‚СЊ РїРѕРґ РєРѕРЅРєСЂРµС‚РЅС‹Р№ Р¶Р°РЅСЂ).
+  # РЎРєР°С‡РёРІР°СЋС‚СЃСЏ СЃ HuggingFace РІ РєРµС€ ACE-Step РїСЂРё РїРµСЂРІРѕРј РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРё.
+  # weight 0.0-1.5: РІРєР»Р°Рґ LoRA РІ С„РёРЅР°Р»СЊРЅС‹Р№ Р·РІСѓРє. 0 = Р±Р°Р·РѕРІР°СЏ РјРѕРґРµР»СЊ.
+  #
+  # name = РїРѕРґРїРёСЃСЊ РІ UI. repo = HF repo id РёР»Рё null (Р±РµР· LoRA).
+  # РЎРїРёСЃРѕРє СЃРѕР±СЂР°РЅ РёР· community HF РЅР° 2026-06. Р”РѕР±Р°РІР»СЏС‚СЊ СЃРІРѕРё вЂ” РїСЂРѕСЃС‚Рѕ
+  # РґРѕРїРёСЃС‹РІР°Р№ СЃС‚СЂРѕРєРё РЅРёР¶Рµ, UI РїСЂРѕС‡РёС‚Р°РµС‚ РёС….
+  lora_options:
+    - name: "Р‘РµР· LoRA (Р±Р°Р·РѕРІР°СЏ РјРѕРґРµР»СЊ)"
+      repo: null
+      weight: 0.0
+
+    # рџЋµ Lo-fi (РґР»СЏ chill СЃС†РµРЅ вЂ” СЂР°Р·РіРѕРІРѕСЂС‹, С„Р»РµС€Р±РµРєРё, СЂРѕРјР°РЅС‚РёРєР°)
+    - name: "Lo-fi (smoki)"
+      repo: "smoki9999/smoki-lofi-acestep1.5"
+      weight: 1.0
+
+    # рџЊЊ Ambient Dream (РґР»СЏ chill / sus вЂ” РјРёСЃС‚РёРєР°, РјРµС‡С‚Р°С‚РµР»СЊРЅРѕСЃС‚СЊ, С‚РёС€РёРЅР°)
+    - name: "Ambient Dream"
+      repo: "DisturbingTheField/ACE-Step-v1.5-ambient_dream1-LoRA"
+      weight: 1.0
+
+    # вљЎ Drum & Bass (РґР»СЏ action вЂ” РґСЂР°РєРё, РїРѕРіРѕРЅРё, РґРёРЅР°РјРёРєР°)
+    - name: "Drum & Bass"
+      repo: "edijane/acestep15_drumnbass_lora"
+      weight: 1.0
+
+    # рџЊё Kawaii Future Bass (РґР»СЏ upbeat вЂ” СЌРЅРµСЂРіРёСЏ, РґСѓСЂР°С€Р»РёРІРѕСЃС‚СЊ, РґРІРёР¶РµРЅРёРµ)
+    - name: "Kawaii Future Bass"
+      repo: "NoyzeAI/ACE-Step-v1.5-Kawaii_Future_Bass-LoRA"
+      weight: 1.0
+
+    # рџЋ» Symphonic Metal (РґР»СЏ epic вЂ” РјР°СЃС€С‚Р°Р±РЅС‹Рµ С„РёРЅР°Р»С‹, РєСѓР»СЊРјРёРЅР°С†РёРё)
+    - name: "Symphonic Metal"
+      repo: "6san/symphonic_metal_lora_for_ace-step_v15"
+      weight: 1.0
+
+    # вњЁ Refine (СѓРЅРёРІРµСЂСЃР°Р»СЊРЅС‹Р№ boost РєР°С‡РµСЃС‚РІР° вЂ” РјРѕР¶РЅРѕ РїРѕРІРµСЂС… Р»СЋР±РѕРіРѕ mood)
+    - name: "Refine (boost quality)"
+      repo: "artificialguybr/AceStep_Refine_Redmond"
+      weight: 0.8
+
+    # рџЄ• Indian Raga (РЅРёС€РµРІР°СЏ С„РёС‡Р°, СЌРєР·РѕС‚РёРєР° вЂ” РґР»СЏ СЂРµРґРєРёС… СЃС†РµРЅ)
+    - name: "Indian Raga"
+      repo: "veeceey/RagaLoRA-indian-music-ace-step"
+      weight: 1.0
+
+ollama:
+  # qwen2.5-instruct РіРѕСЂР°Р·РґРѕ СЃС‚Р°Р±РёР»СЊРЅРµРµ СЃР»РµРґСѓРµС‚ JSON-РёРЅСЃС‚СЂСѓРєС†РёСЏРј С‡РµРј qwen3
+  # (qwen3 вЂ” "thinking" РјРѕРґРµР»СЊ, РЅР° РґР»РёРЅРЅРѕРј С‚СЂР°РЅСЃРєСЂРёРїС‚Рµ С‡Р°СЃС‚Рѕ РіР°Р»Р»СЋС†РёРЅРёСЂСѓРµС‚)
+  primary_model: qwen2.5:14b-instruct-q4_K_M
+  fallback_model: qwen3:14b
+  host: http://localhost:11434
+  # РџРѕР»РЅРѕСЃС‚СЊСЋ Р»РѕРєР°Р»СЊРЅС‹Р№ LLM-РєРѕРЅС‚СѓСЂ. Р”Р»СЏ СЃС‚Р°Р±РёР»СЊРЅРѕСЃС‚Рё РЅР° RTX 4070 Ti РЅРµ СЃРєР°СЂРјР»РёРІР°РµРј
+  # РІРµСЃСЊ Р±Р°С‚С‡ СЃРµСЂРёР№ РѕРґРЅРёРј prompt'РѕРј: analyze.py СЂРµР¶РµС‚ РґР»РёРЅРЅС‹Рµ С‚СЂР°РЅСЃРєСЂРёРїС‚С‹ РЅР° С‡Р°РЅРєРё.
+  num_ctx: 16384
+  num_predict: 4096
+  temperature: 0.25
+  analysis_chunk_max_chars: 22000
+  # РќРµ РіСЂСѓР·РёРј qwen3 Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РїРѕСЃР»Рµ qwen2.5: СЌС‚Рѕ РІРґРІРѕРµ С‚СЏР¶РµР»РµРµ РґР»СЏ RAM/VRAM.
+  analysis_use_fallback_model: false
+  keep_alive: "2m"
+  seo_num_ctx: 8192
+  seo_num_predict: 1024
+  seo_temperature: 0.35
+  seo_timeout_sec: 90
+  # Р”Р»СЏ SEO fallback РЅР° qwen3 РѕС‚РєР»СЋС‡С‘РЅ: qwen3 РјРµРґР»РµРЅРЅРµРµ Рё СЃРєР»РѕРЅРЅР° СѓС…РѕРґРёС‚СЊ РІ СЂР°СЃСЃСѓР¶РґРµРЅРёСЏ.
+  # Р•СЃР»Рё qwen2.5 РЅРµ РґР°Р» РІР°Р»РёРґРЅС‹Р№/Р·Р°Р·РµРјР»С‘РЅРЅС‹Р№ JSON, РєРѕРґРѕРІС‹Р№ SEO fallback Р±С‹СЃС‚СЂРµРµ Рё РЅР°РґС‘Р¶РЅРµРµ.
+  seo_use_fallback_model: false
+
+seo:
+  # РЎС‚РёР»СЊ РїРѕ РїСЂРёРјРµСЂСѓ РєР»РёРїРѕРІ РёР· СЃРµСЂРёР°Р»РѕРІ: СЃРёР»СЊРЅР°СЏ РїРµСЂРІР°СЏ СЃС‚СЂРѕРєР° + С‚РµРјР°С‚РёС‡РµСЃРєРёР№ hashtag-cloud.
+  # РќРµ РєРѕРїРёСЂСѓРµРј РЅРµСЂРµР»РµРІР°РЅС‚РЅС‹Р№ СЃРїР°Рј: YouTube РґРѕРїСѓСЃРєР°РµС‚ С…СЌС€С‚РµРіРё, РЅРѕ РїСЂРµРґСѓРїСЂРµР¶РґР°РµС‚ РїСЂРѕС‚РёРІ over-tagging.
+  enabled: true
+  # РЈРјРЅС‹Р№ СЃРјС‹СЃР» СЃС†РµРЅС‹ СѓР¶Рµ РїСЂРёС…РѕРґРёС‚ РёР· analyze.py. РЎР°Рј SEO-РїР°РєРµС‚ СЃРѕР±РёСЂР°РµРј РґРµС‚РµСЂРјРёРЅРёСЂРѕРІР°РЅРЅРѕ,
+  # С‡С‚РѕР±С‹ РЅРµ Р¶РґР°С‚СЊ 90 СЃРµРє РЅР° РєР°Р¶РґС‹Р№ РєР»РёРї Рё РЅРµ Р»РѕРІРёС‚СЊ РіР°Р»Р»СЋС†РёРЅР°С†РёРё РјРµС‚Р°РґР°РЅРЅС‹С….
+  llm_enabled: false
+  description_style: competitor_balanced
+  cta: "РџРѕРґРїРёС€РёСЃСЊ, С‚СѓС‚ СЃР°РјС‹Рµ Р»СѓС‡С€РёРµ СЃС†РµРЅС‹ С‚РІРѕРёС… Р»СЋР±РёРјС‹С… СЃРµСЂРёР°Р»РѕРІ рџ”Ґ"
+  first_line_hashtags: 9
+  max_description_hashtags: 22
+  max_hidden_tags: 18
+  include_youtube_shorts_hashtag: true
+  include_russian_shorts_hashtag: true
+  # Р•СЃР»Рё Р·Р°С…РѕС‡РµС€СЊ СЂРёСЃРєРѕРІР°РЅРЅС‹Р№ СЂРµР¶РёРј РєР°Рє Сѓ РЅРµРєРѕС‚РѕСЂС‹С… РєРѕРЅРєСѓСЂРµРЅС‚РѕРІ (#viralshorts/#trendingshorts),
+  # РІРєР»СЋС‡Р°РµС‚СЃСЏ Р·РґРµСЃСЊ. РџРѕ СѓРјРѕР»С‡Р°РЅРёСЋ false, С‡С‚РѕР±С‹ РЅРµ Р»РѕРІРёС‚СЊ РјРµС‚Р°РґР°С‚Р°-СЃРїР°Рј.
+  include_growth_hashtags: false
+  uppercase_opening_hook: true
+
+tiktok:
+  # Direct Post API. Р”Рѕ TikTok audit Р±РµР·РѕРїР°СЃРЅС‹Р№ РґРµС„РѕР»С‚ вЂ” private/self-only.
+  default_privacy: "SELF_ONLY"
+  disable_comment: false
+  disable_duet: false
+  disable_stitch: false
+  is_aigc: false
+  max_caption_hashtags: 14
+  status_poll_timeout_sec: 45
+  status_poll_interval_sec: 5
+
+kimi:
+  # Р’Р«РљР›Р®Р§Р•РќРћ: РїРѕРґРїРёСЃРєР° РїСЂРѕСЃСЂРѕС‡РµРЅР° (402). Р’РєР»СЋС‡РёС‚СЊ РѕР±СЂР°С‚РЅРѕ вЂ” РїРѕСЃС‚Р°РІРёС‚СЊ enabled: true.
+  # Private API key lives only in config.local.yaml (see config.local.example.yaml).
+  enabled: false
+  # Kimi For Coding key is intentionally not stored in the public config.
+  # Endpoint С‚СЂРµР±СѓРµС‚ User-Agent РєРѕРґРёРЅРі-Р°РіРµРЅС‚Р° (СЃРј. user_agent РЅРёР¶Рµ).
+  api_key: ""
+  base_url: https://api.kimi.com/coding/v1
+  model: kimi-for-coding
+  user_agent: "claude-cli/1.0.45 (external, cli)"
+
+gemini:
+  # Google Gemini С‡РµСЂРµР· OpenAI-compatible endpoint.
+  # Free tier: ~250 req/РґРµРЅСЊ, 1M С‚РѕРєРµРЅРѕРІ/РґРµРЅСЊ, РѕС‡РµРЅСЊ Р±С‹СЃС‚СЂС‹Р№.
+  # РљР»СЋС‡: https://aistudio.google.com/apikey (СЂР°Р±РѕС‚Р°РµС‚ РёР· Р Р¤ Р±РµР· VPN).
+  # Р•СЃР»Рё РєР»СЋС‡ РїСѓСЃС‚РѕР№/enabled=false вЂ” СЃР»РѕР№ РїСЂРѕРїСѓСЃРєР°РµС‚СЃСЏ.
+  enabled: false
+  api_key: ""
+  base_url: https://generativelanguage.googleapis.com/v1beta/openai
+  model: "gemini-2.5-flash-lite"
+  fallback_model: "gemini-2.0-flash-exp"
+
+groq:
+  # Groq cloud вЂ” РјРіРЅРѕРІРµРЅРЅС‹Р№ inference (LPU).
+  # Free tier: 30 req/min, РґРѕСЃС‚СѓРїРЅРѕ РёР· Р Р¤ Р±РµР· VPN.
+  # РљР»СЋС‡: https://console.groq.com/keys
+  enabled: false
+  api_key: ""
+  base_url: https://api.groq.com/openai/v1
+  # Р›СѓС‡С€РµРµ РєР°С‡РµСЃС‚РІРѕ JSON: llama-3.3-70b-versatile. Р РµР·РµСЂРІ вЂ” qwen.
+  model: "llama-3.3-70b-versatile"
+  fallback_model: "qwen-2.5-32b"
+
+openrouter:
+  # OpenRouter вЂ” fallback РјРµР¶РґСѓ Kimi Рё Ollama.
+  # Free tier: 50 req/РґРµРЅСЊ; РїСЂРё Р±Р°Р»Р°РЅСЃРµ >= $10 РґР°С‘С‚ 1000 req/РґРµРЅСЊ.
+  # OpenAI-СЃРѕРІРјРµСЃС‚РёРјС‹Р№ endpoint, JSON mode РїРѕРґРґРµСЂР¶РёРІР°РµС‚СЃСЏ.
+  #
+  # Р’РђР–РќРћ: DeepSeek :free РІР°СЂРёР°РЅС‚С‹ СѓР±СЂР°РЅС‹ OpenRouter РІ 2026.
+  # Р›СѓС‡С€РёР№ Р±РµСЃРїР»Р°С‚РЅС‹Р№ РїСѓС‚СЊ РїРѕРґ РЅР°С€Сѓ Р·Р°РґР°С‡Сѓ СЃРµР№С‡Р°СЃ вЂ” openrouter/free:
+  # СЂРѕСѓС‚РµСЂ СЃР°Рј РІС‹Р±РёСЂР°РµС‚ Р¶РёРІСѓСЋ free-РјРѕРґРµР»СЊ Рё РЅРµ РїСЂРёРІСЏР·С‹РІР°РµС‚ РЅР°СЃ Рє СѓСЃС‚Р°СЂРµРІС€РёРј slug'Р°Рј.
+  # Р РµР·РµСЂРІ вЂ” РѕС‚РґРµР»СЊРЅС‹Рµ free-РјРѕРґРµР»Рё РЅРёР¶Рµ, РЅРѕ РѕРЅРё РјРѕРіСѓС‚ РІСЂРµРјРµРЅРЅРѕ РѕС‚РґР°РІР°С‚СЊ 429.
+  enabled: false
+  api_key: ""
+  base_url: https://openrouter.ai/api/v1
+  # Р¦РµРїРѕС‡РєР° РјРѕРґРµР»РµР№: РїСЂРѕР±СѓРµРј РїРѕ РїРѕСЂСЏРґРєСѓ, РЅР° 429/5xx вЂ” СЃР»РµРґСѓСЋС‰Р°СЏ.
+  # РџРѕСЂСЏРґРѕРє РІС‹РІРµСЂРµРЅ Р±РµРЅС‡РјР°СЂРєРѕРј (_openrouter_test.py):
+  #   - gpt-oss-120b: 2.22s, 12 reasoning С‚РѕРєРµРЅРѕРІ, РёРґРµР°Р»СЊРЅС‹Р№ JSON
+  #   - kimi-k2.6:    3.08s, 0 reasoning, РѕС‚Р»РёС‡РЅРѕ СЃ СЂСѓСЃСЃРєРёРј
+  #   - qwen3-next:   С‡Р°СЃС‚Рѕ rate-limited РЅРѕ 262k ctx РєРѕРіРґР° СЂР°Р±РѕС‚Р°РµС‚
+  #   - nemotron-3:   1M ctx, РґР»СЏ РіРёРіР°РЅС‚СЃРєРёС… С‚СЂР°РЅСЃРєСЂРёРїС‚РѕРІ (Р±СЌРєР°Рї)
+  #   - llama-3.3-70b: С‡Р°СЃС‚Рѕ rate-limited
+  #   - glm-4.5-air:  9.3s, 236 reasoning (РїРѕСЃР»РµРґРЅРёР№ СЂСѓР±РµР¶)
+  models:
+    - "openrouter/free"                           # РђРІС‚Рѕ-СЂРѕСѓС‚РµСЂ РїРѕ Р¶РёРІС‹Рј free-РјРѕРґРµР»СЏРј
+    - "openai/gpt-oss-120b:free"                  # 131k ctx, РёРЅРѕРіРґР° Р·Р°С†РёРєР»РёРІР°РµС‚СЃСЏ
+    - "nvidia/nemotron-3-super-120b-a12b:free"    # 120B, 1M ctx
+    - "qwen/qwen3-next-80b-a3b-instruct:free"     # 80B MoE, 262k, Р±С‹РІР°РµС‚ 429
+    - "meta-llama/llama-3.3-70b-instruct:free"    # Llama 3.3 70B, Р±С‹РІР°РµС‚ 429
+  # Legacy single-model РїРѕР»СЏ (РґР»СЏ РѕР±СЂР°С‚РЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё)
+  model: "openai/gpt-oss-120b:free"
+  fallback_model: "openrouter/free"
+  # OpenRouter СЂРµРєРѕРјРµРЅРґСѓРµС‚ СЌС‚Рё Р·Р°РіРѕР»РѕРІРєРё РґР»СЏ СЂРµР№С‚РёРЅРіР° Рё Р°С‚СЂРёР±СѓС†РёРё
+  http_referer: "https://github.com/shorts-factory"
+  app_title: "ShortsFactory"
+
+shorts:
+  min_duration_sec: 15
+  max_duration_sec: 60
+  target_duration_sec: 35
+  target_min_ratio: 0.8
+  target_max_ratio: 1.25
+  min_gap_sec: 10
+  silence_cut_min_final_ratio: 0.8
+  allow_fewer_clips: false
+  clips_per_video: 6
+
+safety:
+  # Р—Р°С‰РёС‚РЅС‹Рµ РїСЂР°РІРёР»Р° РїСЂРѕС‚РёРІ Content ID Рё YouTube reused/inauthentic policy.
+  #
+  # Smart-РґРµС‚РµРєС‚РѕСЂ Р·Р°СЃС‚Р°РІРєРё Рё С‚РёС‚СЂРѕРІ.
+  # РђР»РіРѕСЂРёС‚Рј: СЃС‡РёС‚Р°РµРј СЃР»РѕРІР° РІ РѕРєРЅР°С… 10 СЃРµРє РїРѕ С‚СЂР°РЅСЃРєСЂРёРїС‚Сѓ.
+  # Р—Р°СЃС‚Р°РІРєР° = 0-3 СЃР»РѕРІР°/РѕРєРЅРѕ (С‚РѕР»СЊРєРѕ СѓР·РЅР°РІР°РµРјР°СЏ РјСѓР·С‹РєР°).
+  # РћСЃРЅРѕРІРЅРѕР№ СЌРїРёР·РѕРґ = 12+ СЃР»РѕРІ/РѕРєРЅРѕ (РїР»РѕС‚РЅС‹Р№ РґРёР°Р»РѕРі).
+  # Р“СЂР°РЅРёС†Р° РґРµС‚РµРєС‚РёС‚СЃСЏ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё вЂ” РќР• СЂРµР¶РµРј blanket-РѕРј.
+  # РљР»РёРїС‹, РїРµСЂРµРєСЂС‹РІР°СЋС‰РёРµ Р·Р°СЃС‚Р°РІРєСѓ, РџРћР”Р“РћРќРЇР®РўРЎРЇ (start СЃРґРІРёРіР°РµС‚СЃСЏ Р·Р° intro_end).
+  intro_detector_enabled: true
+  intro_detector_max_check_sec: 180   # РёС‰РµРј intro РІ РїРµСЂРІС‹С… 180 СЃРµРє
+  outro_detector_max_check_sec: 120   # РёС‰РµРј outro РІ РїРѕСЃР»РµРґРЅРёС… 120 СЃРµРє
+  intro_detector_speech_threshold: 12 # СЃР»РѕРІ/10СЃРµРє РґР»СЏ РѕРїСЂРµРґРµР»РµРЅРёСЏ "РїР»РѕС‚РЅРѕРіРѕ РґРёР°Р»РѕРіР°"
+  #
+  # РњРёРЅРёРјСѓРј Р¶РёРІС‹С… СЃР»РѕРІ РІ РєР»РёРїРµ. Р—Р°С‰РёС‚Р° РѕС‚ РІС‹Р±РѕСЂР° РјРѕРјРµРЅС‚РѕРІ "С‚РёС€РёРЅР° + РјСѓР·С‹РєР°",
+  # РіРґРµ Content ID 100% РјР°С‚С‡РёС‚ РѕСЂРёРіРёРЅР°Р»СЊРЅС‹Р№ score.
+  min_dialogue_words: 8
+  min_first_3sec_words: 2
+  #
+  # AI disclosure (С‚СЂРµР±РѕРІР°РЅРёРµ YouTube). Р’Р«РљР›Р®Р§Р•РќРћ вЂ” СѓРїРѕРјРёРЅР°РЅРёРµ РР
+  # РІ РѕРїРёСЃР°РЅРёРё РјРѕР¶РµС‚ РЅР°РІСЂРµРґРёС‚СЊ РїСЂРѕРґРІРёР¶РµРЅРёСЋ.
+  ai_disclosure_in_description: false
+  #
+  # Rights manifest: РІРЅСѓС‚СЂРµРЅРЅРёР№ Р°СѓРґРёС‚-РґРѕРєСѓРјРµРЅС‚, РЅРµ РїСѓР±Р»РёРєСѓРµС‚СЃСЏ.
+  # РџРѕР»РµР·РµРЅ РґР»СЏ disputing claims.
+  write_rights_manifest: true
+  #
+  # вљЎ Vocal isolation (demucs htdemucs) вЂ” СЂРµС€РµРЅРёРµ РґР»СЏ "No restriction" claims.
+  # РћС‚РґРµР»СЏРµС‚ РіРѕР»РѕСЃ Р°РєС‚С‘СЂРѕРІ РѕС‚ РѕСЂРёРіРёРЅР°Р»СЊРЅРѕРіРѕ score в†’ Content ID РЅРµ РјР°С‚С‡РёС‚ РјСѓР·С‹РєСѓ.
+  # РЎС‚РѕРёРјРѕСЃС‚СЊ: +20-40 СЃРµРє РЅР° РєР»РёРї (CUDA), РјРѕРґРµР»СЊ 80MB.
+  # Р’РљР›Р®Р§Р•РќРћ: demucs 4.0.1 + htdemucs РјРѕРґРµР»СЊ СѓСЃС‚Р°РЅРѕРІР»РµРЅС‹.
+  vocal_isolation_enabled: true
+  vocal_isolation_model: "htdemucs"
+
+narration:
+  # вќЊ РћРўРљР›Р®Р§Р•РќРћ: Р±РµСЃРїР»Р°С‚РЅС‹Рµ LLM (gpt-oss, kimi, llama-3.3) РЅРµ РґР°СЋС‚ РєР°С‡РµСЃС‚РІРµРЅРЅРѕРіРѕ
+  # СЂСѓСЃСЃРєРѕРіРѕ РєСЂРµР°С‚РёРІРЅРѕРіРѕ РїРµСЂРµСЃРєР°Р·Р° вЂ” Р°РЅР°С…СЂРѕРЅРёР·РјС‹ ("РњРѕСЂС‚Рё РІ РРЅСЃС‚Р°РіСЂР°РјРµ"),
+  # СЃРєСЂС‹С‚С‹Р№ РґСѓР±Р»СЏР¶ ("С€РµРїС‡РµС‚ РњРѕСЂС‚Рё..."), 100+ СЃР»РѕРІ РЅР° 25 СЃРµРє = С‚Р°СЂР°С‚РѕСЂРёС‚.
+  # РљРѕРґ СЃРѕС…СЂР°РЅС‘РЅ РІ pipeline/narration.py РґР»СЏ Р±СѓРґСѓС‰РµРіРѕ РІРѕР·РІСЂР°С‚Р° РЅР° РїР»Р°С‚РЅС‹С…
+  # LLM (Claude Opus / GPT-4 / Gemini Pro) РіРґРµ РєР°С‡РµСЃС‚РІРѕ РїСЂРёРµРјР»РµРјРѕРµ.
+  # РР· render.py + app.py СѓР±СЂР°РЅ. Р§С‚РѕР±С‹ РІРµСЂРЅСѓС‚СЊ вЂ” РЅСѓР¶РЅС‹ СЂРµС„Р°РєС‚РѕСЂРёРЅРі + РїР»Р°С‚РЅС‹Р№ LLM.
+  enabled: false
+  voice: "auto"
+  gender: "male"
+  volume: 1.0
+
+video:
+  output_width: 1080
+  output_height: 1920
+  codec: h264_nvenc
+  preset: p4
+  crf_equivalent: 23
+  audio_codec: aac
+  audio_bitrate: 192k
+
+subtitle:
+  font_name: "Montserrat ExtraBold"
+  # РќР° 1080Г—1920 РґР»СЏ YouTube Shorts 60-90pt вЂ” СЃС‚Р°РЅРґР°СЂС‚ Сѓ Р±РѕР»СЊС€РёС… РєР°РЅР°Р»РѕРІ.
+  font_size: 72
+  words_per_line: 3
+  text_color: "#FFFFFF"
+  highlight_color: "#FFD700"
+  outline_color: "#000000"
+  outline_width: 6
+  margin_v: 220
+  margin_h: 60
+  alignment: 2
+  uppercase: true
+  animation: "karaoke"
+  timing_offset_ms: 0
+  # Background box Р·Р° С‚РµРєСЃС‚РѕРј (РґР»СЏ С‡РёС‚Р°РµРјРѕСЃС‚Рё РЅР° СЏСЂРєРёС… СЃС†РµРЅР°С…).
+  # false = stroke+shadow (С‚РµРєСѓС‰РёР№ look). true = РїРѕР»СѓРїСЂРѕР·СЂР°С‡РЅС‹Р№ box.
+  background_box: false
+  background_color: "#000000"
+  background_alpha: 160        # 0=РїРѕР»РЅР°СЏ РїСЂРѕР·СЂР°С‡РЅРѕСЃС‚СЊ, 255=РЅРµРїСЂРѕР·СЂР°С‡РЅС‹Р№
+
+reframe:
+  smart_detect_interval: 3
+  smooth_alpha: 0.04
+  min_face_confidence: 0.45
+  no_face_fallback: "hold"
+  smart_zoom_out: 0.45
+
+audio:
+  # music_volume = 0.15 в†’ РјСѓР·С‹РєР° СЃС‚Р°СЂС‚СѓРµС‚ РЅР° 15% Р°РјРїР»РёС‚СѓРґС‹ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РіРѕР»РѕСЃР°.
+  # Р“РѕР»РѕСЃ РЅРѕСЂРјР°Р»РёР·СѓРµС‚СЃСЏ РґРѕ -14 LUFS, РјСѓР·С‹РєР° РѕСЃС‚Р°С‘С‚СЃСЏ ~15% РіСЂРѕРјРєРѕСЃС‚Рё.
+  # Sidechain ducking РµС‰С‘ РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ РіР°СЃРёС‚ РµС‘ РІРѕ РІСЂРµРјСЏ СЂРµС‡Рё (8x ratio).
+  # Р’ UI РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РјРѕР¶РµС‚ РїРµСЂРµРѕРїСЂРµРґРµР»РёС‚СЊ РѕС‚ 0% РґРѕ 50% С‡РµСЂРµР· СЃР»Р°Р№РґРµСЂ.
+  music_volume: 0.15
+  duck_threshold: 0.05
+  duck_ratio: 8
+  duck_attack_ms: 20
+  duck_release_ms: 400
+  loudness_target_lufs: -14
+
+paths:
+  cache: cache
+  output: output
+  music: music
+  logs: logs
+

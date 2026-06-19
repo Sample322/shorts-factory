@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TikTok OAuth Callback - Shorts Factory</title>
+  <meta name="description" content="TikTok OAuth callback helper for Shorts Factory.">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="../">
+        <span class="mark">SF</span>
+        <span>Shorts Factory</span>
+      </a>
+      <nav aria-label="Main">
+        <a href="../privacy.html">Privacy</a>
+        <a href="../terms.html">Terms</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap hero">
+    <section class="panel">
+      <h1>TikTok authorization received</h1>
+      <p>
+        Copy the full browser URL or the authorization code below, then paste
+        it into the TikTok authorization field inside Shorts Factory.
+      </p>
+
+      <h2>Authorization code</h2>
+      <pre id="code">Looking for code...</pre>
+
+      <h2>Full redirect URL</h2>
+      <pre id="full-url">Loading...</pre>
+
+      <div class="actions">
+        <button class="button" type="button" id="copy-code">Copy code</button>
+        <button class="button secondary" type="button" id="copy-url">Copy full URL</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <p>Shorts Factory. Local creator tooling for short-form video production.</p>
+  </footer>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code") || "";
+    const codeEl = document.getElementById("code");
+    const urlEl = document.getElementById("full-url");
+    codeEl.textContent = code || "No code parameter found in the URL.";
+    urlEl.textContent = window.location.href;
+
+    async function copyText(text) {
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+    }
+
+    document.getElementById("copy-code").addEventListener("click", () => copyText(code));
+    document.getElementById("copy-url").addEventListener("click", () => copyText(window.location.href));
+  </script>
+</body>
+</html>

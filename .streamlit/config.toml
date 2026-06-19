@@ -1,0 +1,22 @@
+[server]
+maxUploadSize = 5000
+maxMessageSize = 5000
+# WebSocket-сжатие иногда блокируется антивирусами и расширениями браузера
+# и приводит к бесконечной загрузке / белому экрану. Отключаем.
+enableWebsocketCompression = false
+# XSRF тоже мешает в некоторых браузерных конфигурациях
+enableXsrfProtection = false
+# Явно указываем адрес — иногда Streamlit байндится только на IPv6 ::1
+address = "0.0.0.0"
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+serverPort = 8505
+
+[theme]
+base = "dark"
+primaryColor = "#FF4B4B"
+backgroundColor = "#0E1117"
+secondaryBackgroundColor = "#1A1D23"
+textColor = "#FAFAFA"
