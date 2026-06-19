@@ -7,6 +7,8 @@ from pipeline.analyze import (
     _apply_time_offset,
     _build_analysis_prompt,
     _looks_like_garbage,
+    _is_ollama_resource_error,
+    _ollama_analysis_option_attempts,
     _parse_response,
     _select_evenly,
     _split_local_analysis_chunks,
@@ -146,6 +148,32 @@ class AnalyzeLlmHandlingTest(unittest.TestCase):
         )
 
         self.assertEqual([len(chunk) for chunk in chunks], [1, 1, 1])
+
+    def test_ollama_analysis_options_include_lighter_retry(self) -> None:
+        cfg = {
+            "ollama": {
+                "temperature": 0.2,
+                "num_ctx": 8192,
+                "num_predict": 2048,
+                "analysis_retry_num_ctx": [4096],
+                "analysis_retry_num_predict": 1024,
+            }
+        }
+
+        attempts = _ollama_analysis_option_attempts(cfg)
+
+        self.assertEqual(
+            attempts,
+            [
+                {"temperature": 0.2, "num_predict": 2048, "num_ctx": 8192},
+                {"temperature": 0.2, "num_predict": 1024, "num_ctx": 4096},
+            ],
+        )
+
+    def test_ollama_resource_error_detection_catches_cuda(self) -> None:
+        self.assertTrue(_is_ollama_resource_error("CUDA error: unknown error"))
+        self.assertTrue(_is_ollama_resource_error("llama-server process has terminated"))
+        self.assertFalse(_is_ollama_resource_error("invalid JSON or no clip objects"))
 
 
 if __name__ == "__main__":

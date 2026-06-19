@@ -417,9 +417,88 @@ def _installed_ollama_models(cli: ollama.Client, cfg: dict) -> set[str] | None:
     return names
 
 
+def _ollama_analysis_option_attempts(cfg: dict) -> list[dict]:
+    o_cfg = cfg.get("ollama", {})
+    base_ctx = int(o_cfg.get("num_ctx", 8192))
+    base_predict = int(o_cfg.get("num_predict", 2048))
+    retry_predict = int(o_cfg.get("analysis_retry_num_predict", min(base_predict, 1024)))
+    raw_retry_contexts = o_cfg.get("analysis_retry_num_ctx", [4096])
+    if isinstance(raw_retry_contexts, int):
+        retry_contexts = [raw_retry_contexts]
+    else:
+        retry_contexts = [int(v) for v in (raw_retry_contexts or [])]
+
+    contexts: list[int] = []
+    for ctx in [base_ctx, *retry_contexts]:
+        if ctx > 0 and ctx not in contexts:
+            contexts.append(ctx)
+
+    attempts: list[dict] = []
+    for i, ctx in enumerate(contexts):
+        attempts.append({
+            "temperature": float(o_cfg.get("temperature", 0.25)),
+            "num_predict": base_predict if i == 0 else min(base_predict, retry_predict),
+            "num_ctx": ctx,
+        })
+    return attempts
+
+
+def _is_ollama_resource_error(message: str) -> bool:
+    lowered = message.lower()
+    needles = (
+        "cuda",
+        "out of memory",
+        "not enough memory",
+        "llama-server process has terminated",
+        "failed to load model",
+        "status code: 500",
+    )
+    return any(needle in lowered for needle in needles)
+
+
 def _analyze_ollama(prompt: str, cfg: dict, desired_count: int) -> list[Segment] | None:
-    """Анализ через локальный Ollama. Одна попытка на модель — fail fast."""
+    """Analyze through local Ollama and retry with lighter options on GPU errors."""
     cli = ollama.Client(host=cfg["ollama"]["host"])
+    raw_chat = cli.chat
+
+    def chat_with_retries(**kwargs):
+        base_options = dict(kwargs.get("options") or {})
+        attempts = [base_options]
+        for retry_options in _ollama_analysis_option_attempts(cfg)[1:]:
+            if retry_options not in attempts:
+                attempts.append(dict(retry_options))
+        last_error: Exception | None = None
+        for i, attempt_options in enumerate(attempts):
+            if i:
+                log.warning(
+                    f"Ollama {kwargs.get('model')}: retry num_ctx={attempt_options['num_ctx']} "
+                    f"num_predict={attempt_options['num_predict']}"
+                )
+            kwargs["options"] = attempt_options
+            try:
+                return raw_chat(**kwargs)
+            except Exception as exc:
+                last_error = exc
+                err = _sanitize_error(exc)
+                has_retry = i + 1 < len(attempts)
+                if has_retry and _is_ollama_resource_error(err):
+                    next_options = attempts[i + 1]
+                    _diag(
+                        cfg,
+                        "Ollama",
+                        str(kwargs.get("model") or ""),
+                        (
+                            f"{err}; retrying with num_ctx={next_options['num_ctx']} "
+                            f"num_predict={next_options['num_predict']}"
+                        ),
+                    )
+                    continue
+                raise
+        if last_error:
+            raise last_error
+        raise RuntimeError("Ollama did not run any analysis attempts")
+
+    cli.chat = chat_with_retries
     models = [cfg["ollama"]["primary_model"]]
     if cfg["ollama"].get("analysis_use_fallback_model", False) and cfg["ollama"].get("fallback_model"):
         models.append(cfg["ollama"]["fallback_model"])

@@ -72,13 +72,15 @@ ollama:
   host: http://localhost:11434
   # РџРѕР»РЅРѕСЃС‚СЊСЋ Р»РѕРєР°Р»СЊРЅС‹Р№ LLM-РєРѕРЅС‚СѓСЂ. Р”Р»СЏ СЃС‚Р°Р±РёР»СЊРЅРѕСЃС‚Рё РЅР° RTX 4070 Ti РЅРµ СЃРєР°СЂРјР»РёРІР°РµРј
   # РІРµСЃСЊ Р±Р°С‚С‡ СЃРµСЂРёР№ РѕРґРЅРёРј prompt'РѕРј: analyze.py СЂРµР¶РµС‚ РґР»РёРЅРЅС‹Рµ С‚СЂР°РЅСЃРєСЂРёРїС‚С‹ РЅР° С‡Р°РЅРєРё.
-  num_ctx: 16384
-  num_predict: 4096
+  num_ctx: 8192
+  num_predict: 2048
   temperature: 0.25
-  analysis_chunk_max_chars: 22000
+  analysis_chunk_max_chars: 12000
+  analysis_retry_num_ctx: [4096]
+  analysis_retry_num_predict: 1024
   # РќРµ РіСЂСѓР·РёРј qwen3 Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РїРѕСЃР»Рµ qwen2.5: СЌС‚Рѕ РІРґРІРѕРµ С‚СЏР¶РµР»РµРµ РґР»СЏ RAM/VRAM.
   analysis_use_fallback_model: false
-  keep_alive: "2m"
+  keep_alive: "30s"
   seo_num_ctx: 8192
   seo_num_predict: 1024
   seo_temperature: 0.35
