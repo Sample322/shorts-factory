@@ -30,6 +30,55 @@ ANIMATION_STYLES = {
     "none": "Без анимации",
 }
 
+# Готовые пресеты — быстрая замена десятка слайдеров одним выбором
+SUBTITLE_PRESETS: dict[str, dict] = {
+    "current_karaoke": {
+        "font_name": "Montserrat ExtraBold", "font_size": 72,
+        "words_per_line": 3, "text_color": "#FFFFFF",
+        "highlight_color": "#FFD700", "outline_color": "#000000",
+        "outline_width": 6, "margin_v": 220, "uppercase": True,
+        "animation": "karaoke", "background_box": False,
+    },
+    "tiktok_bold": {
+        "font_name": "Montserrat ExtraBold", "font_size": 84,
+        "words_per_line": 2, "text_color": "#FFFFFF",
+        "highlight_color": "#FFEE00", "outline_color": "#000000",
+        "outline_width": 10, "margin_v": 300, "uppercase": True,
+        "animation": "instant", "background_box": False,
+    },
+    "mr_beast": {
+        "font_name": "Russo One", "font_size": 96,
+        "words_per_line": 2, "text_color": "#FFFFFF",
+        "highlight_color": "#00FF7F", "outline_color": "#000000",
+        "outline_width": 12, "margin_v": 250, "uppercase": True,
+        "animation": "instant", "background_box": False,
+    },
+    "minimal": {
+        "font_name": "Montserrat Bold", "font_size": 56,
+        "words_per_line": 4, "text_color": "#FFFFFF",
+        "highlight_color": "#FFFFFF", "outline_color": "#000000",
+        "outline_width": 3, "margin_v": 180, "uppercase": False,
+        "animation": "none", "background_box": True,
+        "background_color": "#000000", "background_alpha": 180,
+    },
+    "story_book": {
+        "font_name": "Montserrat Bold", "font_size": 64,
+        "words_per_line": 3, "text_color": "#FFFFFF",
+        "highlight_color": "#FF6B6B", "outline_color": "#1A1A1A",
+        "outline_width": 4, "margin_v": 200, "uppercase": False,
+        "animation": "fade", "background_box": True,
+        "background_color": "#000000", "background_alpha": 140,
+    },
+}
+
+PRESET_LABELS = {
+    "current_karaoke": "🎤 Karaoke (текущий)",
+    "tiktok_bold": "🔥 TikTok Bold",
+    "mr_beast": "💚 Mr. Beast",
+    "minimal": "✨ Minimal",
+    "story_book": "📖 Story Book",
+}
+
 GOLDEN_STANDARD = {
     "font_name": "Montserrat ExtraBold",
     # Для 1080x1920 (вертикальные Shorts) большие каналы используют 70-90pt.

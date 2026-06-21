@@ -186,6 +186,7 @@ def run_job(
     smart_zoom_out: float | None = None,
     youtube_upload: bool = False,
     youtube_privacy: str = "unlisted",
+    youtube_publish_at: str | None = None,
     youtube_source_context: str = "",
     tiktok_upload: bool = False,
     tiktok_privacy: str = "SELF_ONLY",
@@ -207,6 +208,11 @@ def run_job(
     music_volume: float | None = None,
     music_lora_repo: str | None = None,
     music_lora_weight: float = 0.0,
+    vocal_isolation_enabled: bool | None = None,
+    speed_enabled: bool = False,
+    speed_factor: float = 1.0,
+    watermark_enabled: bool = False,
+    thumbnail_enabled: bool = False,
 ) -> dict:
     cfg = load_config()
 
@@ -216,6 +222,12 @@ def run_job(
         cfg["shorts"]["target_duration_sec"] = target_duration
     if smart_zoom_out is not None:
         cfg.setdefault("reframe", {})["smart_zoom_out"] = smart_zoom_out
+    # UI override: vocal_isolation_enabled. Если параметр явно передан
+    # (True/False) — переопределяет config.yaml → safety.vocal_isolation_enabled.
+    if vocal_isolation_enabled is not None:
+        cfg.setdefault("safety", {})["vocal_isolation_enabled"] = bool(
+            vocal_isolation_enabled
+        )
 
     if subtitle_overrides:
         sub = cfg.setdefault("subtitle", {})
@@ -689,6 +701,66 @@ def run_job(
                 else:
                     shutil.copy(current, clip_final)
 
+                # Post-effects: speed control + watermark
+                try:
+                    from .post_effects import apply_speed, apply_watermark
+                    pe_cfg = cfg.get("post_effects", {})
+                    speed_active = speed_enabled or pe_cfg.get("speed", {}).get(
+                        "enabled", False
+                    )
+                    if speed_active and abs(speed_factor - 1.0) > 0.01:
+                        emit({"type": "clip_substep", "i": i + 1, "step": "speed",
+                              "label": f"Ускоряю ×{speed_factor}"})
+                        clip_sped = debug_dir / f"clip_{i + 1:02d}_sped.mp4"
+                        apply_speed(clip_final, clip_sped, speed_factor)
+                        shutil.move(str(clip_sped), str(clip_final))
+
+                    wm_cfg = pe_cfg.get("watermark", {})
+                    wm_active = watermark_enabled or wm_cfg.get("enabled", False)
+                    logo_path = Path(wm_cfg.get("logo_path", "assets/watermark.png"))
+                    if wm_active and logo_path.exists():
+                        emit({"type": "clip_substep", "i": i + 1, "step": "watermark",
+                              "label": "Накладываю watermark"})
+                        clip_wm = debug_dir / f"clip_{i + 1:02d}_wm.mp4"
+                        apply_watermark(
+                            clip_final, clip_wm, logo_path,
+                            position=wm_cfg.get("position", "bottom_right"),
+                            opacity=float(wm_cfg.get("opacity", 0.8)),
+                            scale_pct=float(wm_cfg.get("scale_pct", 8.0)),
+                            margin=int(wm_cfg.get("margin", 30)),
+                        )
+                        shutil.move(str(clip_wm), str(clip_final))
+                except Exception as pe_err:
+                    log.warning(f"post_effects упал на клипе {i + 1}: {pe_err}")
+
+                # Auto-thumbnail
+                if thumbnail_enabled or cfg.get("thumbnail", {}).get("enabled", False):
+                    try:
+                        from .thumbnail import generate_thumbnail
+                        thumb_path = generate_thumbnail(
+                            clip_final, seg.title,
+                            shorts_dir,
+                            name=f"clip_{i + 1:02d}_thumb.jpg",
+                        )
+                        if thumb_path:
+                            log.info(f"Thumbnail: {thumb_path.name}")
+                    except Exception as th_err:
+                        log.warning(f"thumbnail упал на клипе {i + 1}: {th_err}")
+
+                # Clip scoring — heuristic для UI
+                clip_score_info: dict = {}
+                if cfg.get("clip_scoring", {}).get("enabled", True):
+                    try:
+                        from .clip_scorer import score_clip
+                        clip_score_info = score_clip(clip_final, {
+                            "title": seg.title,
+                            "hook": getattr(seg, "hook", ""),
+                            "duration": seg.end - seg.start,
+                            "music_mood": seg.music_mood,
+                        })
+                    except Exception as sc_err:
+                        log.warning(f"clip_scoring упал: {sc_err}")
+
                 clip_record = {
                     "file": str(clip_final.relative_to(out_dir)),
                     "title": seg.title,
@@ -699,6 +771,8 @@ def run_job(
                     "source_path": seg.__dict__.get("_source_path"),
                     "source_start": seg.__dict__.get("_local_start"),
                     "source_end": seg.__dict__.get("_local_end"),
+                    "score": clip_score_info.get("score"),
+                    "verdict": clip_score_info.get("verdict"),
                 }
 
                 # --- Rights manifest: аудит-документ источников ---
@@ -771,9 +845,17 @@ def run_job(
                 # --- YouTube auto-upload (опционально) ---
                 if youtube_upload and yt_ready and seo_meta is not None:
                     try:
+                        # Schedule publish — privacy переключаем на private,
+                        # YouTube опубликует автоматом в publish_at
+                        effective_privacy = youtube_privacy
+                        effective_publish_at = None
+                        if youtube_publish_at:
+                            effective_privacy = "private"
+                            effective_publish_at = youtube_publish_at
                         meta_video = replace(
                             seo_meta,
-                            privacy_status=youtube_privacy,
+                            privacy_status=effective_privacy,
+                            publish_at=effective_publish_at,
                         )
 
                         # AI disclosure отключён по умолчанию — упоминание ИИ

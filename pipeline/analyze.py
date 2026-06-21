@@ -119,6 +119,37 @@ def _format_transcript(segments: list[dict]) -> tuple[str, str, int]:
     return "\n".join(lines), duration_str, total_sec
 
 
+def _repair_kimi_mojibake(text: str) -> str:
+    """Восстанавливает двойную mojibake-кодировку из Kimi response.
+
+    Kimi-for-coding иногда возвращает текст где UTF-8 cyrillic был
+    интерпретирован как Latin-1 и снова encoded в UTF-8. Признак:
+    последовательности "Р?" / "Р+" в большом количестве.
+
+    Возвращает исходную строку если mojibake не обнаружено или repair
+    не сработал.
+    """
+    if not text:
+        return text
+    # Quick check: "РњР" / "РІ" / "РѕР" — типичные mojibake-маркеры.
+    # Также нет смысла repair'ить ASCII-only.
+    sample = text[:2000]
+    if not any(s in sample for s in ("РњР", "РІ", "РѕР", "Р°", "Сѓ", "Р±", "С‚Р")):
+        return text
+    # Mojibake возникает когда UTF-8 cyrillic bytes интерпретируются как cp1251.
+    # Recovery: encode("cp1251") → decode("utf-8") вернёт исходный текст.
+    # Сначала cp1251 (типичный Windows mojibake), потом latin-1 как fallback.
+    for enc in ("cp1251", "latin-1"):
+        try:
+            repaired = text.encode(enc, errors="strict").decode("utf-8", errors="strict")
+        except (UnicodeDecodeError, UnicodeEncodeError, LookupError):
+            continue
+        # Sanity: repaired должен содержать реальную кириллицу
+        if re.search(r"[А-Яа-яЁё]{3,}", repaired):
+            return repaired
+    return text
+
+
 def _analyze_kimi(prompt: str, cfg: dict, desired_count: int) -> list[Segment] | None:
     """Анализ через Kimi AI (OpenAI-совместимый API).
 
@@ -141,24 +172,90 @@ def _analyze_kimi(prompt: str, cfg: dict, desired_count: int) -> list[Segment] |
     )
     model = kimi_cfg.get("model", "moonshot-v1-32k")
 
+    # Некоторые Kimi-модели (например kimi-for-coding, kimi-k2-*) принимают
+    # только temperature=1. Детектим по имени и не передаём temperature вообще
+    # либо передаём 1.0, чтобы избежать "invalid temperature: only 1 is allowed".
+    _kimi_temp_locked = (
+        model.startswith("kimi-for-")
+        or model.startswith("kimi-k2")
+        or model.startswith("kimi-k3")
+        or "for-coding" in model
+    )
+
     for attempt in range(2):
         log.info(f"Анализ через Kimi {model} (попытка {attempt + 1})...")
         try:
-            # response_format=json_object — Kimi гарантированно вернёт валидный JSON.
-            # max_tokens=16384 — у kimi-for-coding есть reasoning_content, часть
-            # токенов уйдёт на размышления; не жадничаем чтобы не упереться в стоп.
-            resp = client.chat.completions.create(
-                model=model,
-                messages=[
+            # max_tokens: reasoning-модели (K2.7 Code) тратят бюджет на
+            # размышления; кфг override позволяет поднять до 32k-65k.
+            max_toks = int(kimi_cfg.get("max_tokens", 16384))
+            kwargs = {
+                "model": model,
+                "messages": [
                     {"role": "system", "content": _SYSTEM_MSG},
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.3 + attempt * 0.15,
-                max_tokens=16384,
-                response_format={"type": "json_object"},
-            )
+                "max_tokens": max_toks,
+                "response_format": {"type": "json_object"},
+            }
+            if _kimi_temp_locked:
+                kwargs["temperature"] = 1.0
+            else:
+                kwargs["temperature"] = 0.3 + attempt * 0.15
+            resp = client.chat.completions.create(**kwargs)
+            msg = resp.choices[0].message
+            raw_orig = msg.content or ""
+            # Debug: если content пустой, посмотрим reasoning_content
+            # (kimi-k2 reasoning модели). Логируем его длину чтобы понять
+            # куда ушёл бюджет.
+            reasoning_text = None
+            for attr in ("reasoning_content", "reasoning", "thinking"):
+                val = getattr(msg, attr, None)
+                if val:
+                    reasoning_text = str(val)
+                    break
+            if not raw_orig and reasoning_text:
+                log.warning(
+                    f"Kimi {model}: content=0, reasoning_content={len(reasoning_text)} симв "
+                    f"(max_tokens={max_toks} мало). Первые 300: {reasoning_text[:300]}"
+                )
+                # Попробуем извлечь JSON из reasoning (модель могла туда положить ответ)
+                from_reasoning = _extract_balanced_json(reasoning_text)
+                if from_reasoning:
+                    log.info("Kimi: JSON найден в reasoning_content, использую его")
+                    raw_orig = from_reasoning
+            # Kimi-Coding иногда возвращает текст с двойной mojibake:
+            # UTF-8 cyrillic → latin-1 интерпретация → re-encode в UTF-8.
+            # Маркер: содержит много "Р?" последовательностей.
+            # Recover: encode("latin-1").decode("utf-8") вернёт исходный
+            # cyrillic. Делаем БЕЗ записи переменной resp (resp ниже не используется).
+            repaired = _repair_kimi_mojibake(raw_orig)
+            if repaired is not raw_orig:
+                log.info("Kimi response mojibake detected, repaired")
+                # Подменяем content внутри resp вручную нельзя — но дальше
+                # код использует resp.choices[0].message.content, перепишем
+                # через прямое присвоение.
+                try:
+                    resp.choices[0].message.content = repaired
+                except Exception:
+                    pass
             raw = resp.choices[0].message.content or ""
             _save_raw_response(cfg, "Kimi", model, raw)
+            # Usage debug: куда ушёл бюджет (prompt/completion/reasoning)
+            try:
+                u = resp.usage
+                if u is not None:
+                    completion_det = getattr(u, "completion_tokens_details", None)
+                    reasoning_tok = (
+                        getattr(completion_det, "reasoning_tokens", 0)
+                        if completion_det else 0
+                    )
+                    log.info(
+                        f"Kimi usage: prompt={u.prompt_tokens} "
+                        f"completion={u.completion_tokens} reasoning={reasoning_tok} "
+                        f"total={u.total_tokens}"
+                    )
+            except Exception:
+                pass
             log.info(f"Ответ Kimi: {len(raw)} символов")
             log.info(f"Первые 500 символов: {raw[:500]}")
 
@@ -175,6 +272,40 @@ def _analyze_kimi(prompt: str, cfg: dict, desired_count: int) -> list[Segment] |
             _diag(cfg, "Kimi", model, "invalid JSON or no clip objects")
         except Exception as e:
             err = _sanitize_error(e)
+            err_lower = err.lower()
+            # Авто-retry для temperature lock-in: Kimi может поменять policy
+            # и эта модель больше не принимает кастомный temperature.
+            if (
+                "invalid temperature" in err_lower
+                or "only 1 is allowed" in err_lower
+            ) and not _kimi_temp_locked:
+                log.warning(
+                    f"Kimi {model} требует temperature=1, ретраю с temperature=1.0"
+                )
+                _kimi_temp_locked = True
+                try:
+                    resp = client.chat.completions.create(
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": _SYSTEM_MSG},
+                            {"role": "user", "content": prompt},
+                        ],
+                        temperature=1.0,
+                        max_tokens=16384,
+                        response_format={"type": "json_object"},
+                    )
+                    raw = resp.choices[0].message.content or ""
+                    _save_raw_response(cfg, "Kimi", model, raw)
+                    target_dur = cfg["shorts"]["target_duration_sec"]
+                    min_dur = cfg["shorts"]["min_duration_sec"]
+                    segments = _parse_response(raw, target_dur, min_dur)
+                    if segments:
+                        log.info(
+                            f"Kimi retry OK: {len(segments)} сегментов (temperature=1)"
+                        )
+                        return segments[:desired_count]
+                except Exception as e2:
+                    log.warning(f"Kimi retry с temperature=1 тоже упал: {e2}")
             log.warning(f"Ошибка Kimi: {err}")
             _diag(cfg, "Kimi", model, err)
             break
@@ -456,6 +587,79 @@ def _is_ollama_resource_error(message: str) -> bool:
     return any(needle in lowered for needle in needles)
 
 
+def _is_ollama_mojibake_path_error(message: str) -> bool:
+    """Detect Ollama startup with broken (non-ASCII) OLLAMA_MODELS path.
+
+    Symptom: error contains user-profile-style path with mojibake chars
+    (cp1251 cyrillic interpreted as utf-8). Example:
+        failed to load model from C:\\Users\\������ ����\\.ollama\\...
+    Means ollama serve was started WITHOUT proper OLLAMA_MODELS env and
+    is reading from the broken default user profile path.
+    """
+    # cp1251 кириллица как UTF-8 даёт "?" символы или characters � (U+FFFD)
+    # Также реальный backslash-Users без mojibake signal'а не интересен
+    if "failed to load model" not in message.lower():
+        return False
+    if "\\users\\" not in message.lower():
+        return False
+    # Маркеры mojibake: replacement char, череда "?" в пути, нестандартные
+    # байты (вне ASCII печатных + ascii cyrillic)
+    if "�" in message:
+        return True
+    if "?????" in message:
+        return True
+    # Бинарные байты-как-знаки-?-в-пути
+    # cp1251 после reinterpret как latin-1 даёт "Ð" "Â" "ï¿½"
+    suspicious = ("ï¿½", "Ð", "Â", "ÿ", "Ô")
+    if any(s in message for s in suspicious):
+        return True
+    return False
+
+
+def _try_restart_ollama_via_script() -> bool:
+    """Пробует автоматически перезапустить ollama с правильным OLLAMA_MODELS.
+
+    Запускает scripts/start_ollama_for_factory.ps1 в subprocess. Returns
+    True если скрипт отработал без ошибок (это НЕ гарантирует что ollama
+    стартовал — просто что наш PowerShell helper не упал).
+    """
+    import subprocess as _sp
+    from pathlib import Path as _P
+    script = _P(__file__).resolve().parents[1] / "scripts" / "start_ollama_for_factory.ps1"
+    if not script.exists():
+        log.warning(f"start_ollama_for_factory.ps1 не найден ({script}), recovery skip")
+        return False
+    try:
+        log.info(f"🔁 Автоматически перезапускаю Ollama через {script.name}...")
+        r = _sp.run(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+             "-File", str(script)],
+            capture_output=True, text=True, timeout=60,
+        )
+        if r.returncode == 0:
+            log.info("✅ Ollama restart скрипт отработал OK")
+            return True
+        log.warning(f"Ollama restart скрипт упал: {r.stderr[:200]}")
+        return False
+    except (_sp.SubprocessError, OSError) as e:
+        log.warning(f"Не удалось запустить ollama restart скрипт: {e}")
+        return False
+
+
+def _ollama_preflight(cli: ollama.Client, model: str) -> tuple[bool, str | None]:
+    """Pre-flight: проверка что Ollama сервер видит модель.
+
+    Returns (ok, error_message). Если ok=False с mojibake-сообщением,
+    можно попробовать auto-restart перед chat.
+    """
+    try:
+        cli.show(model)
+        return True, None
+    except Exception as e:
+        err = _sanitize_error(e)
+        return False, err
+
+
 def _analyze_ollama(prompt: str, cfg: dict, desired_count: int) -> list[Segment] | None:
     """Analyze through local Ollama and retry with lighter options on GPU errors."""
     cli = ollama.Client(host=cfg["ollama"]["host"])
@@ -506,12 +710,42 @@ def _analyze_ollama(prompt: str, cfg: dict, desired_count: int) -> list[Segment]
     min_ok = max(3, (desired_count * 2) // 3)
     best_segments: list[Segment] = []
 
+    # Pre-flight: проверяем что сервер видит хотя бы первую модель.
+    # Если падает с mojibake — один раз пробуем авто-restart через скрипт.
+    mojibake_recovered = False
     for model in models:
         if installed_models is not None and model not in installed_models:
             msg = f"model is not installed locally; run `ollama pull {model}`"
             log.warning(f"Ollama {model}: {msg}")
             _diag(cfg, "Ollama", model, msg)
             continue
+
+        preflight_ok, preflight_err = _ollama_preflight(cli, model)
+        if not preflight_ok and _is_ollama_mojibake_path_error(preflight_err or ""):
+            if not mojibake_recovered:
+                log.warning(
+                    "❌ Ollama serve запущен с битым OLLAMA_MODELS (mojibake path), "
+                    "пробую автоматический перезапуск..."
+                )
+                mojibake_recovered = True
+                if _try_restart_ollama_via_script():
+                    # После перезапуска — снова проверяем
+                    cli = ollama.Client(host=cfg["ollama"]["host"])
+                    cli.chat = chat_with_retries
+                    installed_models = _installed_ollama_models(cli, cfg)
+                    preflight_ok, preflight_err = _ollama_preflight(cli, model)
+
+            if not preflight_ok:
+                actionable = (
+                    "Ollama serve запущен БЕЗ правильного OLLAMA_MODELS env "
+                    "(пути с кириллицей не читаются). "
+                    "Закрой ollama app.exe (трей) и запусти: "
+                    "powershell -ExecutionPolicy Bypass -File "
+                    "C:\\shorts-factory\\scripts\\start_ollama_for_factory.ps1"
+                )
+                log.warning(f"❌ {actionable}")
+                _diag(cfg, "Ollama", model, actionable)
+                break  # дальше Ollama не имеет смысла
 
         log.info(f"Анализ через {model}...")
         try:
@@ -562,6 +796,65 @@ def _analyze_ollama(prompt: str, cfg: dict, desired_count: int) -> list[Segment]
             )
         except Exception as e:
             err = _sanitize_error(e)
+            # Mojibake path detection — пробуем auto-restart ВНУТРИ chat
+            # exception (preflight мог пройти если cli.show работал, а chat — нет).
+            if _is_ollama_mojibake_path_error(err):
+                if not mojibake_recovered:
+                    log.warning(
+                        "❌ Ollama mojibake path внутри chat. "
+                        "Пробую автоматический перезапуск..."
+                    )
+                    mojibake_recovered = True
+                    if _try_restart_ollama_via_script():
+                        # Пересоздаём cli с новым сервером
+                        cli = ollama.Client(host=cfg["ollama"]["host"])
+                        cli.chat = chat_with_retries
+                        installed_models = _installed_ollama_models(cli, cfg)
+                        # Повторяем chat ещё один раз
+                        try:
+                            log.info(
+                                f"🔁 Повторяю chat после restart Ollama для {model}..."
+                            )
+                            resp = cli.chat(
+                                model=model,
+                                messages=[
+                                    {"role": "system", "content": _SYSTEM_MSG},
+                                    {"role": "user", "content": prompt},
+                                ],
+                                options=options,
+                                format="json",
+                                keep_alive=cfg["ollama"].get("keep_alive", "2m"),
+                            )
+                            raw = resp["message"]["content"]
+                            _save_raw_response(cfg, "Ollama", model, raw)
+                            log.info(f"Ответ после restart {model}: {len(raw)} символов")
+                            target_dur = cfg["shorts"]["target_duration_sec"]
+                            min_dur = cfg["shorts"]["min_duration_sec"]
+                            segments = _parse_response(raw, target_dur, min_dur)
+                            if segments:
+                                if len(segments) > len(best_segments):
+                                    best_segments = segments
+                                if len(segments) >= min_ok:
+                                    return segments[:desired_count]
+                            continue
+                        except Exception as e_retry:
+                            err_retry = _sanitize_error(e_retry)
+                            log.warning(
+                                f"После restart Ollama chat снова упал: {err_retry}"
+                            )
+                            err = err_retry  # fall through к actionable error
+                # Auto-restart не помог или уже пробовали
+                actionable = (
+                    f"Ollama serve запущен БЕЗ правильного OLLAMA_MODELS env. "
+                    f"Auto-restart не помог. Скорее всего ollama app.exe "
+                    f"(трей-иконка) держит старый процесс. "
+                    f"ВРУЧНУЮ: закрой трей-иконку Ollama и запусти: "
+                    f"powershell -ExecutionPolicy Bypass -File "
+                    f"C:\\shorts-factory\\scripts\\start_ollama_for_factory.ps1"
+                )
+                log.warning(f"❌ Ollama mojibake path: {actionable}")
+                _diag(cfg, "Ollama", model, actionable)
+                break
             log.warning(f"Ошибка {model}: {err}")
             _diag(cfg, "Ollama", model, err)
             continue
@@ -588,6 +881,33 @@ def _count_words_in_range(
             # Считаем "слова" грубо: токены длиной >= 2 буквы
             total += sum(1 for w in text.split() if len(w) >= 2)
     return total
+
+
+def _hook_overlap_score(
+    seg: "Segment",
+    transcript_segments: list[dict],
+    window_before: float = 0.5,
+    window_after: float = 2.5,
+) -> float | None:
+    """Считает долю слов hook'а присутствующих в transcript в первые сек клипа.
+
+    None если hook пустой. >= 0.35 норма. < 0.35 = LLM придумал hook.
+    """
+    hook = (getattr(seg, "hook", "") or "").lower().strip()
+    if not hook or len(hook) < 4:
+        return None
+    hook_words = {w for w in re.split(r"[^\wа-яА-ЯёЁ]+", hook) if len(w) >= 3}
+    if not hook_words:
+        return None
+    lo = seg.start - window_before
+    hi = seg.start + window_after
+    transcript_text = " ".join(
+        str(s.get("text", "")).lower()
+        for s in transcript_segments
+        if s.get("end", 0) >= lo and s.get("start", 0) <= hi
+    )
+    found = sum(1 for w in hook_words if w in transcript_text)
+    return found / len(hook_words)
 
 
 def _filter_and_adjust_segments(
@@ -652,6 +972,21 @@ def _filter_and_adjust_segments(
             rejected.append((seg, f"первые 3 сек без речи ({first_words} < {min_first_3})"))
             continue
 
+        # 4) Hook fact-check: hook должен реально звучать в первые 2.5с клипа
+        if safety.get("hook_verify_enabled", True):
+            hook_overlap = _hook_overlap_score(
+                seg, transcript_segments,
+                window_before=0.5, window_after=2.5,
+            )
+            min_hook_overlap = float(safety.get("hook_min_overlap", 0.35))
+            if hook_overlap is not None and hook_overlap < min_hook_overlap:
+                rejected.append((
+                    seg,
+                    f"hook не звучит в первые сек ({hook_overlap:.0%} overlap < "
+                    f"{min_hook_overlap:.0%}) — LLM придумал hook"
+                ))
+                continue
+
         safe.append(seg)
 
     for seg, reason in rejected:
@@ -661,6 +996,27 @@ def _filter_and_adjust_segments(
         )
     if safe:
         log.info(f"✅ Safety-фильтр: {len(safe)}/{len(segments)} клипов прошли")
+        # Диагностика распределения по видео — поможем заметить кучность
+        if len(safe) >= 2 and total_seconds > 0:
+            sorted_safe = sorted(safe, key=lambda s: s.start)
+            first_start = sorted_safe[0].start
+            last_start = sorted_safe[-1].start
+            spread_pct = (last_start - first_start) / max(total_seconds, 1) * 100
+            avg_gap = (
+                (last_start - first_start) / (len(sorted_safe) - 1)
+                if len(sorted_safe) > 1 else 0
+            )
+            log.info(
+                f"📊 Распределение клипов: spread {spread_pct:.0f}% от длины видео, "
+                f"средний gap {avg_gap:.0f}s, первый={first_start:.0f}s, "
+                f"последний={last_start:.0f}s, видео={total_seconds}s"
+            )
+            if spread_pct < 50:
+                log.warning(
+                    "⚠️  Кучность: клипы покрывают <50% видео. "
+                    "LLM возможно взял подряд из одной зоны — рассмотри ретрай "
+                    "промпта или укажи в analyze_segments.md что нужно распределение."
+                )
     return safe
 
 
@@ -911,7 +1267,82 @@ def _run_provider_chain(
     return result
 
 
+def _analyze_cache_key(transcript: dict, cfg: dict) -> str:
+    """Stable hash of inputs that affect analyze() output."""
+    import hashlib
+    shorts = cfg.get("shorts", {})
+    parts = [
+        str(shorts.get("clips_per_video", 6)),
+        str(shorts.get("target_duration_sec", 35)),
+        str(shorts.get("min_duration_sec", 15)),
+        str(shorts.get("max_duration_sec", 60)),
+        str(len(transcript.get("segments", []))),
+        # First+last segment text as fingerprint
+        str(transcript.get("segments", [{}])[0].get("text", ""))[:200],
+        str(transcript.get("segments", [{}])[-1].get("text", ""))[:200],
+    ]
+    return hashlib.sha1("||".join(parts).encode("utf-8")).hexdigest()[:16]
+
+
+def _try_load_analyze_cache(transcript: dict, cfg: dict) -> list[Segment] | None:
+    """Resume: если такой transcript+settings уже анализировали — берём из кеша."""
+    if not cfg.get("analyze_cache", {}).get("enabled", True):
+        return None
+    cache_dir = Path(cfg.get("paths", {}).get("cache", "cache")) / "analyze_results"
+    key = _analyze_cache_key(transcript, cfg)
+    cache_file = cache_dir / f"{key}.json"
+    if not cache_file.exists():
+        return None
+    try:
+        import time as _t
+        age_days = (_t.time() - cache_file.stat().st_mtime) / 86400
+        max_age = float(cfg.get("analyze_cache", {}).get("max_age_days", 7))
+        if age_days > max_age:
+            log.info(f"Analyze cache устарел ({age_days:.1f}d > {max_age}d), пропускаю")
+            return None
+        data = json.loads(cache_file.read_text(encoding="utf-8"))
+        segments = [Segment(**item) for item in data.get("segments", [])]
+        if segments:
+            log.info(
+                f"✅ Resume: analyze результат загружен из кеша "
+                f"{cache_file.name} ({len(segments)} клипов, {age_days:.1f}d old)"
+            )
+            return segments
+    except Exception as e:
+        log.warning(f"Analyze cache битый ({e}), пересоздам")
+    return None
+
+
+def _save_analyze_cache(
+    transcript: dict, cfg: dict, segments: list[Segment]
+) -> None:
+    """Сохраняем результат для будущего resume."""
+    if not cfg.get("analyze_cache", {}).get("enabled", True):
+        return
+    cache_dir = Path(cfg.get("paths", {}).get("cache", "cache")) / "analyze_results"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    key = _analyze_cache_key(transcript, cfg)
+    cache_file = cache_dir / f"{key}.json"
+    try:
+        payload = {
+            "segments": [s.model_dump() for s in segments],
+            "cached_at": _iso_now() if "_iso_now" in globals() else None,
+        }
+        cache_file.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        log.info(f"💾 Analyze результат сохранён в кеш: {cache_file.name}")
+    except Exception as e:
+        log.warning(f"Не смог сохранить analyze cache: {e}")
+
+
 def analyze(transcript: dict, cfg: dict) -> list[Segment]:
+    # Resume from checkpoint — если такой же transcript+config уже анализировали
+    cached = _try_load_analyze_cache(transcript, cfg)
+    if cached:
+        return cached
+
     cfg[_DIAGNOSTICS_KEY] = []
     shorts_cfg = cfg["shorts"]
 
@@ -925,12 +1356,23 @@ def analyze(transcript: dict, cfg: dict) -> list[Segment]:
     # вернула больше, а не ровно desired_count.
     asked_count = max(desired_count, int(desired_count * 1.5))
 
+    # Two-pass анализ: если видео длинное (>= 25 мин), делаем chunked
+    # независимо от провайдера. Большие промпты ломают и Kimi (0 байт content),
+    # и Ollama (OOM). Chunked = LLM фокусируется на 10-мин кусках по отдельности.
     chunks = _split_local_analysis_chunks(transcript, cfg)
+    force_chunked = total_seconds > float(
+        cfg.get("analyze", {}).get("force_chunk_threshold_sec", 1500)
+    )
     if (
         chunks
         and len(chunks) > 1
-        and not _remote_llm_enabled(cfg)
-        and cfg.get("ollama", {}).get("primary_model")
+        and (
+            force_chunked
+            or (
+                not _remote_llm_enabled(cfg)
+                and cfg.get("ollama", {}).get("primary_model")
+            )
+        )
     ):
         log.info(
             f"Локальный LLM-анализ чанками: {len(chunks)} частей вместо одного "
@@ -976,7 +1418,9 @@ def analyze(transcript: dict, cfg: dict) -> list[Segment]:
     if result and (
         len(result) >= desired_count or shorts_cfg.get("allow_fewer_clips", False)
     ):
-        return result[:desired_count]
+        final = result[:desired_count]
+        _save_analyze_cache(transcript, cfg, final)
+        return final
     if result:
         _diag(
             cfg,

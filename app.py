@@ -840,6 +840,38 @@ def _render_youtube_sidebar() -> None:
             )
             st.session_state["youtube_privacy"] = privacy
 
+            # Schedule publish — отложенная публикация в peak hours
+            schedule_enabled = st.checkbox(
+                "🕒 Отложенная публикация",
+                value=st.session_state.get("youtube_schedule_enabled", False),
+                help="Загрузка как private + publishAt в указанное время. "
+                     "Privacy переключится в private автоматом.",
+            )
+            st.session_state["youtube_schedule_enabled"] = schedule_enabled
+            if schedule_enabled:
+                import datetime as _dt
+                schedule_date = st.date_input(
+                    "Дата публикации",
+                    value=st.session_state.get(
+                        "youtube_schedule_date",
+                        _dt.date.today() + _dt.timedelta(days=1),
+                    ),
+                )
+                schedule_time = st.time_input(
+                    "Время (UTC)",
+                    value=st.session_state.get(
+                        "youtube_schedule_time", _dt.time(18, 0),
+                    ),
+                    help="В UTC! Peak hours: 17-19 UTC = 20-22 МСК",
+                )
+                st.session_state["youtube_schedule_date"] = schedule_date
+                st.session_state["youtube_schedule_time"] = schedule_time
+                _publish_at = _dt.datetime.combine(
+                    schedule_date, schedule_time
+                ).replace(tzinfo=_dt.timezone.utc).isoformat()
+                st.session_state["youtube_publish_at"] = _publish_at
+                st.caption(f"📅 Будет опубликовано: `{_publish_at}`")
+
             context = st.text_input(
                 "Контекст источника",
                 value=st.session_state.get("youtube_source_context", ""),
@@ -1267,6 +1299,11 @@ def _run_factory_with_pretty_progress(
         "smart_zoom_out": smart_zoom,
         "youtube_upload": bool(st.session_state.get("youtube_enabled", False)),
         "youtube_privacy": st.session_state.get("youtube_privacy", "unlisted"),
+        "youtube_publish_at": (
+            st.session_state.get("youtube_publish_at")
+            if st.session_state.get("youtube_schedule_enabled")
+            else None
+        ),
         "youtube_source_context": st.session_state.get(
             "youtube_source_context", ""
         ),
@@ -1291,6 +1328,13 @@ def _run_factory_with_pretty_progress(
             st.session_state.get("silence_padding_sec", 0.12)
         ),
         "color_grade": bool(st.session_state.get("color_grade", True)),
+        "vocal_isolation_enabled": bool(
+            st.session_state.get("vocal_isolation_enabled", True)
+        ),
+        "speed_enabled": bool(st.session_state.get("speed_enabled", False)),
+        "speed_factor": float(st.session_state.get("speed_factor", 1.1)),
+        "watermark_enabled": bool(st.session_state.get("watermark_enabled", False)),
+        "thumbnail_enabled": bool(st.session_state.get("thumbnail_enabled", False)),
         "generate_music": bool(st.session_state.get("generate_music", False)),
         # music_duration_sec НЕ передаём — render.py авто-считает по длине клипов
         "music_n_variants": int(st.session_state.get("music_n_variants", 3)),
@@ -1980,6 +2024,72 @@ with st.sidebar:
     )
     st.session_state["color_grade"] = color_grade
 
+    # VRAM monitor — видно сколько занято перед запуском ACE-Step
+    try:
+        import torch as _torch_vram
+        if _torch_vram.cuda.is_available():
+            _free_gb = _torch_vram.cuda.mem_get_info()[0] / 1024**3
+            _total_gb = _torch_vram.cuda.get_device_properties(0).total_memory / 1024**3
+            _used = _total_gb - _free_gb
+            _pct = int(_used / _total_gb * 100)
+            st.metric(
+                f"🎮 VRAM ({_pct}% занято)",
+                f"{_free_gb:.1f} / {_total_gb:.1f} GB свободно",
+            )
+    except Exception:
+        pass
+
+    # Speed control — ускорить клип для динамики
+    speed_enabled = st.checkbox(
+        "⚡ Ускорить клипы",
+        value=st.session_state.get("speed_enabled", False),
+        help="Чуть-чуть ускоряет видео + аудио. Полезно для динамики Shorts.",
+    )
+    st.session_state["speed_enabled"] = speed_enabled
+    if speed_enabled:
+        speed_factor = st.slider(
+            "Множитель скорости", 1.0, 1.5, 1.1, 0.05,
+            help="1.0=обычно, 1.1=+10% быстрее, 1.25=хороший баланс",
+        )
+        st.session_state["speed_factor"] = speed_factor
+
+    # Watermark — лого в углу
+    watermark_enabled = st.checkbox(
+        "💧 Watermark/лого",
+        value=st.session_state.get("watermark_enabled", False),
+        help="Накладывает PNG из assets/watermark.png в угол клипа. "
+             "Положи свой лого по этому пути перед включением.",
+    )
+    st.session_state["watermark_enabled"] = watermark_enabled
+
+    # Auto-thumbnail — лучший кадр с лицом + title
+    thumbnail_enabled = st.checkbox(
+        "🖼️ Auto-thumbnail (face+overlay)",
+        value=st.session_state.get("thumbnail_enabled", False),
+        help="MediaPipe ищет лучший кадр с лицом, Pillow рисует title overlay. "
+             "Передаётся в YouTube как кастомный thumbnail.",
+    )
+    st.session_state["thumbnail_enabled"] = thumbnail_enabled
+
+    # Vocal isolation toggle — иногда хочется выключить чтобы услышать
+    # оригинальный звук без demucs-обработки и сравнить.
+    try:
+        import yaml as _yaml_vi
+        _default_vi = (_yaml_vi.safe_load(
+            open("config.yaml", encoding="utf-8")
+        ) or {}).get("safety", {}).get("vocal_isolation_enabled", True)
+    except Exception:
+        _default_vi = True
+    vocal_isolation_enabled = st.checkbox(
+        "🎤 Vocal isolation (demucs)",
+        value=st.session_state.get("vocal_isolation_enabled", _default_vi),
+        help="Отделяет голос актёров от оригинальной музыки/score через demucs "
+             "и убирает фоновую дорожку. Снижает риск Content ID на чужую "
+             "музыку. Выключи если хочешь услышать как клип звучит с "
+             "оригинальным звуком.",
+    )
+    st.session_state["vocal_isolation_enabled"] = vocal_isolation_enabled
+
     # AI-narration отключён: бесплатные LLM не дают качественного русского
     # пересказа (анахронизмы, скрытый дубляж, странная стилистика).
     # Код сохранён в pipeline/narration.py для возможного возврата на
@@ -2087,6 +2197,25 @@ with st.sidebar:
                       help="Сбросить к проверенным настройкам для YouTube Shorts"):
             st.session_state["sub_settings"] = dict(GOLDEN_STANDARD)
             st.rerun()
+
+        # Subtitle presets — быстрая замена десятка слайдеров
+        try:
+            from pipeline.subtitle import SUBTITLE_PRESETS, PRESET_LABELS
+            preset_keys = list(SUBTITLE_PRESETS.keys())
+            preset_pick = st.selectbox(
+                "Пресет стиля",
+                preset_keys,
+                index=0,
+                format_func=lambda k: PRESET_LABELS.get(k, k),
+                help="Готовые пресеты: TikTok Bold, Mr.Beast, Minimal, Story Book",
+            )
+            if st.button("📥 Применить пресет", use_container_width=True):
+                merged = dict(GOLDEN_STANDARD)
+                merged.update(SUBTITLE_PRESETS[preset_pick])
+                st.session_state["sub_settings"] = merged
+                st.rerun()
+        except Exception as _e_ps:
+            st.caption(f"Пресеты недоступны: {_e_ps}")
 
         font_names = list(AVAILABLE_FONTS.keys())
         current_font_idx = (
@@ -2300,6 +2429,37 @@ with tab1:
                     )
 
         if sources:
+            # Pre-flight check экран — что готово/не готово
+            with st.expander("🛫 Pre-flight: проверка системы", expanded=False):
+                try:
+                    from pipeline.preflight import run_all_checks
+                    import yaml as _y_pf
+                    _cfg_pf = _y_pf.safe_load(open("config.yaml", encoding="utf-8")) or {}
+                    try:
+                        _local = _y_pf.safe_load(open("config.local.yaml", encoding="utf-8")) or {}
+                        for k, v in _local.items():
+                            if isinstance(v, dict) and k in _cfg_pf:
+                                _cfg_pf[k].update(v)
+                            else:
+                                _cfg_pf[k] = v
+                    except FileNotFoundError:
+                        pass
+                    checks = run_all_checks(_cfg_pf)
+                    blocking_fail = False
+                    for ok, label, detail in checks:
+                        icon = "✅" if ok else "❌"
+                        st.write(f"{icon} **{label}** — {detail}")
+                        # YouTube/TikTok creds — opt-in, не блокируют
+                        if not ok and label.startswith(("Kimi", "Ollama", "GPU", "Диск")):
+                            blocking_fail = True
+                    if blocking_fail:
+                        st.warning(
+                            "Есть проблемы — завод может упасть. Включи Ollama "
+                            "или поставь Kimi key в config.local.yaml."
+                        )
+                except Exception as e:
+                    st.warning(f"Pre-flight упал: {e}")
+
             col_btn, col_info = st.columns([2, 3])
             with col_btn:
                 run_btn = st.button(

@@ -226,6 +226,7 @@ def main() -> int:
             smart_zoom_out=params.get("smart_zoom_out"),
             youtube_upload=params.get("youtube_upload", False),
             youtube_privacy=params.get("youtube_privacy", "unlisted"),
+            youtube_publish_at=params.get("youtube_publish_at"),
             youtube_source_context=params.get("youtube_source_context", ""),
             tiktok_upload=params.get("tiktok_upload", False),
             tiktok_privacy=params.get("tiktok_privacy", "SELF_ONLY"),
@@ -247,6 +248,11 @@ def main() -> int:
             music_volume=params.get("music_volume"),
             music_lora_repo=params.get("music_lora_repo"),
             music_lora_weight=float(params.get("music_lora_weight", 0.0)),
+            vocal_isolation_enabled=params.get("vocal_isolation_enabled"),
+            speed_enabled=params.get("speed_enabled", False),
+            speed_factor=float(params.get("speed_factor", 1.0)),
+            watermark_enabled=params.get("watermark_enabled", False),
+            thumbnail_enabled=params.get("thumbnail_enabled", False),
         )
         with write_lock:
             if state["status"] != "error":

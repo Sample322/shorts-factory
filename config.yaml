@@ -297,3 +297,47 @@ paths:
   music: music
   logs: logs
 
+# === Новые модули (всё опционально, defaults safe) ===
+
+analyze:
+  # Two-pass: для видео длиннее этого порога — chunked анализ
+  # вне зависимости от провайдера (Kimi/Ollama).
+  # Большие промпты (1000+ сегментов) ломают модели, chunked = LLM
+  # фокусируется на 10-мин кусках по отдельности и берёт лучшие из каждого.
+  force_chunk_threshold_sec: 1500  # 25 мин
+
+analyze_cache:
+  # Resume: одинаковый transcript + settings → результат из кеша.
+  # Сильно ускоряет повторные запуски когда render упал, а analyze ОК.
+  enabled: true
+  max_age_days: 7
+
+post_effects:
+  # Speed control: ускорение клипа на финальной стадии
+  speed:
+    enabled: false
+    factor: 1.0  # 1.0=norm, 1.1=+10% faster, 1.2=+20%
+  # Watermark: PNG логотип в углу.
+  # ⚠️ Требует свой PNG в assets/watermark.png (по умолчанию off).
+  watermark:
+    enabled: false
+    logo_path: "assets/watermark.png"
+    position: "bottom_right"  # top_left/top_right/bottom_left/bottom_right/center
+    opacity: 0.8
+    scale_pct: 8.0
+    margin: 30
+
+thumbnail:
+  # Auto-thumbnail: лучший кадр с лицом + title overlay
+  enabled: false  # opt-in (требует mediapipe + Pillow)
+  font_size: 120
+  stroke_width: 8
+
+clip_scoring:
+  enabled: true  # быстрый heuristic скор каждого клипа для UI
+
+batch_queue:
+  # Очередь нескольких jobs (ночная обработка)
+  enabled: true
+  state_file: "cache/jobs/queue.json"
+
